@@ -1,3 +1,4 @@
+
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, "PingFang SC", "Microsoft YaHei";
     line-height: 1.6;
@@ -111,7 +112,7 @@ header h1 {
     margin-bottom: 10px;
     border-bottom: 1px solid #eee;
     padding-bottom: 5px;
-    font-weight: bold; /* Make subheadings bold instead of relying on italics */
+    font-weight: bold; 
 }
 .quadrant-content h4:first-child {
     margin-top: 0;
@@ -130,15 +131,25 @@ header h1 {
 .q1-sense-block h4 {
     color: #347ab0;
 }
-.q1-sense-block p { /* For core feeling */
-    font-style: normal; /* Ensure no italics */
+.q1-sense-block p { 
+    font-style: normal; 
+}
+
+.sense-image {
+    max-width: 100%;
+    height: auto;
+    border-radius: 6px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    border: 1px solid #eee;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
 .context-example-item {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 8px; /* Added a bit more space */
+    margin-bottom: 8px; 
 }
 
 .sentence-text {
@@ -151,7 +162,7 @@ header h1 {
     /* styles for English part if needed */
 }
 .bilingual-text .zh-text {
-    color: #555; /* Slightly different color for Chinese if desired */
+    color: #555; 
     margin-left: 5px;
 }
 
@@ -161,16 +172,33 @@ header h1 {
     color: #3498db;
     text-decoration: none;
     cursor: pointer;
-    flex-shrink: 0; /* Prevent speaker icon from shrinking */
+    flex-shrink: 0; 
+    background: none;
+    border: none;
+    padding: 5px;
+    line-height: 1; 
+    border-radius: 50%;
+    transition: color 0.2s ease, background-color 0.2s ease;
 }
 .speaker-icon:hover {
     color: #2980b9;
+    background-color: #ecf0f1;
+}
+.speaker-icon.speaking {
+    color: #e67e22; /* Orange when speaking */
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
 }
 
 
 .quadrant-content p, .quadrant-content ul, .quadrant-content div:not(.q1-sense-block):not(.etymology-item):not(.derivative-item):not(.confusing-word-item):not(.context-example-item) {
     margin-bottom: 10px;
-    font-style: normal; /* Ensure no italics */
+    font-style: normal; 
 }
 
 
@@ -191,13 +219,12 @@ header h1 {
     font-weight: bold;
 }
 
-/* Ensure examples within etymology, derivatives, confusing words are not italic */
 .quadrant-content .etymology-item p em,
 .quadrant-content .derivative-item p em,
 .quadrant-content .confusing-word-item p em {
     font-style: normal;
 }
-.etymology-example-intro { /* Class for "例如:" text if needed */
+.etymology-example-intro { 
     font-weight: bold;
 }
 
@@ -270,19 +297,19 @@ footer {
 /* User Collections Grid */
 #user-collections-grid {
     display: grid;
-    grid-template-columns: 1fr; /* Default to single column */
-    gap: 25px; /* Consistent gap */
-    margin-bottom: 30px; /* Space below the collections grid */
+    grid-template-columns: 1fr; 
+    gap: 25px; 
+    margin-bottom: 30px; 
 }
 
-@media (min-width: 768px) { /* Medium screens - 2 columns */
+@media (min-width: 768px) { 
     #user-collections-grid {
         grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
     }
 }
 
 
-@media (min-width: 1200px) { /* Larger screens - 3 columns */
+@media (min-width: 1200px) { 
     #user-collections-grid {
         grid-template-columns: repeat(3, 1fr);
     }
@@ -296,7 +323,7 @@ footer {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     border: 1px solid #e0e0e0;
     display: flex;
-    flex-direction: column; /* Ensure title is above list */
+    flex-direction: column; 
 }
 
 .collection-header {
@@ -365,12 +392,12 @@ footer {
     list-style-type: none;
     padding: 0;
     margin: 0;
-    flex-grow: 1; /* Allow lists to take available space */
-    overflow-y: auto; /* Add scroll if content overflows */
-    max-height: 400px; /* Example max-height */
+    flex-grow: 1; 
+    overflow-y: auto; 
+    max-height: 400px; 
 }
 
-.list-item { /* Shared class for vocab, root, affix items */
+.list-item { 
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -387,23 +414,23 @@ footer {
     background-color: #f9f9f9;
 }
 
-.list-item .item-text-content { /* Wrapper for text and type label */
+.list-item .item-text-content { 
     flex-grow: 1;
     cursor: pointer;
-    display: flex; /* For aligning text and type label if needed */
+    display: flex; 
     align-items: baseline;
-    min-width: 0; /* Fix for flex item overflow */
+    min-width: 0; 
 }
 
 
-.list-item .item-text { /* Shared class for word-text, affix-text, root-text */
+.list-item .item-text { 
     font-size: 1.1em;
     color: #2c3e50;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
-.list-item .item-type-label { /* For (词根), (前缀), (后缀) */
+.list-item .item-type-label { 
     font-size: 0.9em;
     color: #7f8c8d;
     margin-left: 8px;
@@ -414,7 +441,7 @@ footer {
 
 .list-item.marked .item-text {
     font-weight: bold;
-    color: #e67e22; /* Orange color for marked items */
+    color: #e67e22; 
 }
 
 .list-item .item-actions {
@@ -423,7 +450,7 @@ footer {
     flex-shrink: 0;
 }
 
-.list-item button.action-button { /* Common style for mark/delete in all lists */
+.list-item button.action-button { 
     background: none;
     border: none;
     cursor: pointer;
@@ -437,11 +464,11 @@ footer {
 }
 
 .list-item.marked .mark-button {
-    color: #f39c12; /* Gold for marked */
+    color: #f39c12; 
 }
 
 .list-item .delete-button {
-    color: #c0392b; /* Red for delete */
+    color: #c0392b; 
 }
 
 .list-item .mark-button:hover,
@@ -547,7 +574,7 @@ footer {
 
 
 /* Responsive adjustments */
-@media (max-width: 1199px) and (min-width: 768px) { /* Ensure 2 columns for medium screens */
+@media (max-width: 1199px) and (min-width: 768px) { 
     #user-collections-grid {
         grid-template-columns: repeat(2, 1fr);
     }
@@ -574,19 +601,19 @@ footer {
         font-size: 1.4em;
     }
     #quadrants-grid {
-        grid-template-columns: 1fr; /* Stack quadrants on smaller screens */
+        grid-template-columns: 1fr; 
     }
 
     #user-collections-grid {
-        grid-template-columns: 1fr; /* Stack collection books too */
+        grid-template-columns: 1fr; 
     }
      .collection-header {
         flex-direction: column;
-        align-items: stretch; /* Make items full width */
+        align-items: stretch; 
     }
     .collection-header h2 {
         font-size: 1.5em;
-        margin-bottom: 10px; /* Space after title when stacked */
+        margin-bottom: 10px; 
     }
      .collection-header .controls-group {
         width: 100%; 

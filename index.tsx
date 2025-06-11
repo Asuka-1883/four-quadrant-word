@@ -1,3 +1,4 @@
+
 import { inject } from "@vercel/analytics";
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 inject(); 
@@ -71,8 +72,16 @@ interface BilingualString {
 
 interface ContextExample {
     sentence: BilingualString;
-    youglishSearchUrl?: string;
 }
+
+interface WordSense {
+    senseTitle: string;
+    coreFeeling: string;
+    contexts: ContextExample[];
+    imageUrl?: string; 
+    imageContextSentence?: string; // To store which sentence the image is for
+}
+
 interface EtymologyPart {
     name: string;
     meaning: string;
@@ -82,20 +91,16 @@ interface EtymologyPart {
 }
 interface DetailedEtymology {
     main?: string;
-    prefix?: EtymologyPart; // Made optional as AI might not always return it if truly "none"
-    root?: EtymologyPart;   // Made optional
-    suffix?: EtymologyPart; // Made optional
-    literalLogic?: string;  // Kept as optional for flexibility, though prompt requests it
+    prefix?: EtymologyPart; 
+    root?: EtymologyPart;   
+    suffix?: EtymologyPart; 
+    literalLogic?: string; 
 }
 interface WordAnalysisData {
     word: string;
     quadrant1: {
         overallCoreConcept?: string;
-        senses: Array<{
-            senseTitle: string;
-            coreFeeling: string;
-            contexts: ContextExample[];
-        }>;
+        senses: WordSense[];
         synonymsAntonyms: {
             [key: string]: BilingualString[];
         };
@@ -140,7 +145,7 @@ interface VocabularyEntry {
 
 interface MorphologicalPartDetail extends EtymologyPart {
     type: 'root' | 'prefix' | 'suffix';
-    marked: boolean; // Added for marking roots/affixes
+    marked: boolean; 
 }
 
 interface MorphologicalBookEntry {
@@ -150,7 +155,7 @@ interface MorphologicalBookEntry {
 
 // --- State Variables ---
 let vocabularyList: VocabularyEntry[] = [];
-const VOCABULARY_STORAGE_KEY = 'fourQuadrantVocabulary_v5';
+const VOCABULARY_STORAGE_KEY = 'fourQuadrantVocabulary_v7'; // Version bump for imageContextSentence
 
 let rootBook: MorphologicalBookEntry[] = [];
 const ROOT_BOOK_STORAGE_KEY = 'fourQuadrantRootBook_v2';
@@ -162,12 +167,11 @@ let showOnlyMarkedVocab = false;
 let showOnlyMarkedRoots = false;
 let showOnlyMarkedAffixes = false;
 
-let lastBodyScrollTop = 0; // For preserving scroll position when modal is open
+let lastBodyScrollTop = 0; 
 
 const TRIVIAL_MORPHOLOGICAL_PARTS = new Set([
     's', 'es', 'ed', 'ing', 'ly', '-', "'s", "s'", 
-    '无', '无前缀', '无词根', '无后缀', 'none', // Common "none" indicators
-    // Add single letters if they frequently appear as non-meaningful affixes
+    '无', '无前缀', '无词根', '无后缀', 'none', 
 ]);
 
 // --- UI Helper Functions ---
@@ -253,27 +257,83 @@ function createList(items: string[] | BilingualString[] | undefined, itemType: '
     return ul;
 }
 
-// --- Rendering Functions for Quadrants ---
-function renderQuadrant1(data: WordAnalysisData['quadrant1']) {
-    if (!q1Content || !data) return;
-    q1Content.innerHTML = '';
+// --- Text-to-Speech Function ---
+let currentSpeechUtterance: SpeechSynthesisUtterance | null = null;
+let speakingIcon: HTMLElement | null = null;
 
-    if (data.overallCoreConcept) {
-        q1Content.appendChild(createParagraph(`<strong>总体核心概念:</strong> ${data.overallCoreConcept}`, undefined, true));
+function playSentenceAudio(sentence: string, iconElement: HTMLElement) {
+    if (!sentence || !window.speechSynthesis) {
+        console.warn("Speech synthesis not available or sentence is empty.");
+        return;
     }
 
-    if (data.senses && Array.isArray(data.senses)) {
-        data.senses.forEach((sense) => {
+    if (currentSpeechUtterance && window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel();
+        if(speakingIcon) speakingIcon.classList.remove('speaking');
+    }
+    
+    if (speakingIcon === iconElement && !window.speechSynthesis.speaking) {
+        speakingIcon = null;
+        currentSpeechUtterance = null;
+        return;
+    }
+
+    currentSpeechUtterance = new SpeechSynthesisUtterance(sentence);
+    currentSpeechUtterance.lang = 'en-US'; 
+
+    speakingIcon = iconElement;
+    speakingIcon.classList.add('speaking');
+    
+    currentSpeechUtterance.onend = () => {
+        if(speakingIcon) speakingIcon.classList.remove('speaking');
+        speakingIcon = null;
+        currentSpeechUtterance = null;
+    };
+    currentSpeechUtterance.onerror = (event) => {
+        console.error('Speech synthesis error:', event.error);
+        if(speakingIcon) speakingIcon.classList.remove('speaking');
+        speakingIcon = null;
+        currentSpeechUtterance = null;
+        showError("朗读句子时出错: " + event.error);
+    };
+
+    window.speechSynthesis.speak(currentSpeechUtterance);
+}
+
+
+// --- Rendering Functions for Quadrants ---
+function renderQuadrant1(data: WordAnalysisData) {
+    if (!q1Content || !data || !data.quadrant1) return;
+    q1Content.innerHTML = '';
+    const q1Data = data.quadrant1;
+
+
+    if (q1Data.overallCoreConcept) {
+        q1Content.appendChild(createParagraph(`<strong>总体核心概念:</strong> ${q1Data.overallCoreConcept}`, undefined, true));
+    }
+
+    if (q1Data.senses && Array.isArray(q1Data.senses)) {
+        q1Data.senses.forEach((sense) => {
             const senseDiv = document.createElement('div');
             senseDiv.className = 'q1-sense-block';
             if (sense.senseTitle) {
                 const h4 = document.createElement('h4');
-                h4.innerHTML = sense.senseTitle;
+                h4.innerHTML = sense.senseTitle; 
                 senseDiv.appendChild(h4);
             }
             if (sense.coreFeeling) {
                 senseDiv.appendChild(createParagraph(sense.coreFeeling));
             }
+
+            if (sense.imageUrl && sense.imageContextSentence) {
+                const img = document.createElement('img');
+                img.src = sense.imageUrl;
+                img.alt = `视觉表现: 例句 "${sense.imageContextSentence}" 中的 "${data.word}"`;
+                img.className = 'sense-image';
+                senseDiv.appendChild(img);
+            }
+
+
             if (sense.contexts && Array.isArray(sense.contexts) && sense.contexts.length > 0) {
                 senseDiv.appendChild(createParagraph('<strong>语境示例:</strong>', undefined, true));
                 const contextsDiv = document.createElement('div');
@@ -284,16 +344,15 @@ function renderQuadrant1(data: WordAnalysisData['quadrant1']) {
                     const bilingualP = createBilingualParagraph(context.sentence, 'sentence-text');
                     itemDiv.appendChild(bilingualP);
 
-                    if (context.youglishSearchUrl) {
-                        const speakerLink = document.createElement('a');
-                        speakerLink.href = context.youglishSearchUrl;
-                        speakerLink.target = '_blank';
-                        speakerLink.rel = 'noopener noreferrer';
-                        speakerLink.className = 'speaker-icon';
-                        speakerLink.innerHTML = '🔊';
-                        speakerLink.setAttribute('aria-label', `在Youglish上查找 "${context.sentence.en}" 的发音`);
-                        itemDiv.appendChild(speakerLink);
-                    }
+                    const speakerButton = document.createElement('button');
+                    speakerButton.className = 'speaker-icon';
+                    speakerButton.innerHTML = '🔊';
+                    speakerButton.setAttribute('aria-label', `朗读: "${context.sentence.en}"`);
+                    speakerButton.type = 'button'; 
+                    speakerButton.addEventListener('click', () => {
+                        playSentenceAudio(context.sentence.en, speakerButton);
+                    });
+                    itemDiv.appendChild(speakerButton);
                     contextsDiv.appendChild(itemDiv);
                 });
                 senseDiv.appendChild(contextsDiv);
@@ -302,17 +361,16 @@ function renderQuadrant1(data: WordAnalysisData['quadrant1']) {
         });
     }
 
-    // Render Etymology first
-    if (data.etymology) {
+    if (q1Data.etymology) {
         const h4 = document.createElement('h4');
         h4.textContent = '词源';
         q1Content.appendChild(h4);
         const etymologyDiv = document.createElement('div');
         etymologyDiv.className = 'etymology-item';
-        if (data.etymology.main) etymologyDiv.appendChild(createParagraph(data.etymology.main));
+        if (q1Data.etymology.main) etymologyDiv.appendChild(createParagraph(q1Data.etymology.main));
 
         const renderPart = (part: EtymologyPart | undefined, typeName: string) => {
-            if (part && part.name && !TRIVIAL_MORPHOLOGICAL_PARTS.has(part.name.toLowerCase())) { // Don't render "无" explicitly here
+            if (part && part.name && !TRIVIAL_MORPHOLOGICAL_PARTS.has(part.name.toLowerCase())) { 
                 let partHtml = `<strong>${part.name} (${typeName}):</strong> 含义：'${part.meaning}'`;
                 if(part.origin) partHtml += `。来源：${part.origin}`;
                 if(part.details) partHtml += `。${part.details}`;
@@ -330,26 +388,22 @@ function renderQuadrant1(data: WordAnalysisData['quadrant1']) {
                  etymologyDiv.appendChild(createParagraph(`<strong>${typeName}:</strong> ${part.meaning || part.name}`, undefined, true));
             }
         };
-        renderPart(data.etymology.prefix, '前缀');
-        renderPart(data.etymology.root, '词根');
-        renderPart(data.etymology.suffix, '后缀');
+        renderPart(q1Data.etymology.prefix, '前缀');
+        renderPart(q1Data.etymology.root, '词根');
+        renderPart(q1Data.etymology.suffix, '后缀');
         
-        if (data.etymology.literalLogic) {
-            etymologyDiv.appendChild(createParagraph(`<strong>字面逻辑:</strong> ${data.etymology.literalLogic}`, undefined, true));
-        } else {
-            // If AI was supposed to always provide literalLogic, and it's missing, we could note that
-            // etymologyDiv.appendChild(createParagraph("字面逻辑分析缺失。", "subtle-text"));
+        if (q1Data.etymology.literalLogic) {
+            etymologyDiv.appendChild(createParagraph(`<strong>字面逻辑:</strong> ${q1Data.etymology.literalLogic}`, undefined, true));
         }
         q1Content.appendChild(etymologyDiv);
     }
     
-    // Then render Synonyms and Antonyms
-    if (data.synonymsAntonyms && Object.keys(data.synonymsAntonyms).length > 0) {
+    if (q1Data.synonymsAntonyms && Object.keys(q1Data.synonymsAntonyms).length > 0) {
         const h4 = document.createElement('h4');
         h4.textContent = '近义词与反义词';
         q1Content.appendChild(h4);
-        Object.keys(data.synonymsAntonyms).forEach(key => {
-            const items = data.synonymsAntonyms[key];
+        Object.keys(q1Data.synonymsAntonyms).forEach(key => {
+            const items = q1Data.synonymsAntonyms[key];
             if (items && Array.isArray(items) && items.length > 0) {
                 let translatedKey = key.replace(/_/g, ' ');
                 if (translatedKey.includes('synonyms')) translatedKey = translatedKey.replace('synonyms', '近义词');
@@ -413,8 +467,8 @@ function renderQuadrant3(data: WordAnalysisData['quadrant3']) {
             itemDiv.className = 'derivative-item';
             const titleP = createParagraph(`<strong>${item.word} (${item.pos}):</strong> `, undefined, true);
             const meaningP = createBilingualParagraph(item.meaning);
-            titleP.appendChild(meaningP.childNodes[0]); // en
-            if (meaningP.childNodes[1]) titleP.appendChild(meaningP.childNodes[1]); // zh
+            titleP.appendChild(meaningP.childNodes[0]); 
+            if (meaningP.childNodes[1]) titleP.appendChild(meaningP.childNodes[1]); 
             itemDiv.appendChild(titleP);
 
             if (item.example) {
@@ -470,7 +524,7 @@ function displayAnalysis(analysis: WordAnalysisData) {
     if (!analysis) return;
     clearPreviousData(false);
     if (centralWordH2) centralWordH2.textContent = analysis.word;
-    renderQuadrant1(analysis.quadrant1);
+    renderQuadrant1(analysis);
     renderQuadrant2(analysis.quadrant2);
     renderQuadrant3(analysis.quadrant3);
     renderQuadrant4(analysis.quadrant4);
@@ -501,7 +555,7 @@ function addWordToVocabulary(wordToAdd: string, analysisData: WordAnalysisData) 
 
     if (existingEntryIndex !== -1) {
         vocabularyList[existingEntryIndex].analysisData = analysisData;
-        vocabularyList[existingEntryIndex].word = wordToAdd; // Update casing if needed
+        vocabularyList[existingEntryIndex].word = wordToAdd; 
         const updatedEntry = vocabularyList.splice(existingEntryIndex, 1)[0];
         updatedEntry.addedTimestamp = Date.now();
         vocabularyList.unshift(updatedEntry);
@@ -555,19 +609,18 @@ function handleToggleMarkWordInVocab(wordToMark: string) {
 
 async function handleWordClickInVocab(word: string) {
     const entry = vocabularyList.find(e => e.word.toLowerCase() === word.toLowerCase());
-    wordInput.value = entry ? entry.word : word; // Update input field with clicked word
+    wordInput.value = entry ? entry.word : word; 
 
     if (entry && entry.analysisData) {
         clearPreviousData();
         showLoading(true);
-        // Short delay to allow UI to update before potentially expensive displayAnalysis
         await new Promise(resolve => setTimeout(resolve, 20)); 
         displayAnalysis(entry.analysisData!);
-        showMainAppView(true); // Ensure main view is visible and restore scroll if needed
+        showMainAppView(true); 
         showLoading(false);
-        window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll to top for word analysis
+        window.scrollTo({ top: 0, behavior: 'smooth' }); 
     } else {
-        await handleLearnWord(entry ? entry.word : word, true); // Pass true to indicate scroll needed
+        await handleLearnWord(entry ? entry.word : word, true); 
     }
 }
 
@@ -663,7 +716,6 @@ function loadMorphologicalBook(key: string, defaultBook: MorphologicalBookEntry[
     if (stored) {
         try {
             const parsedBook: MorphologicalBookEntry[] = JSON.parse(stored);
-            // Ensure `marked` property exists
             return parsedBook.map(entry => ({
                 ...entry,
                 part: {
@@ -708,7 +760,6 @@ function extractAndAddMorphologicalParts(word: string, etymology: DetailedEtymol
     partsToAdd.forEach(item => {
         const partNameLower = item.detail.name.trim().toLowerCase();
         
-        // Filter out trivial or "none" parts before adding to books
         if (TRIVIAL_MORPHOLOGICAL_PARTS.has(partNameLower)) {
             console.log(`Skipping storage of trivial/placeholder part: ${item.detail.name} (${item.type})`);
             return; 
@@ -716,7 +767,6 @@ function extractAndAddMorphologicalParts(word: string, etymology: DetailedEtymol
 
         const isRoot = item.type === 'root';
         const targetBook = isRoot ? rootBook : affixBook;
-        // Use a more robust key: type + name + meaning (if available) to differentiate similar names with different meanings
         const partKey = `${item.type}-${partNameLower}-${(item.detail.meaning || '').toLowerCase()}`; 
         
         let entry = targetBook.find(e => 
@@ -725,7 +775,7 @@ function extractAndAddMorphologicalParts(word: string, etymology: DetailedEtymol
 
         if (!entry) {
             entry = {
-                part: { ...item.detail, type: item.type, marked: false }, // Initialize marked
+                part: { ...item.detail, type: item.type, marked: false }, 
                 associatedWords: []
             };
             targetBook.push(entry);
@@ -735,7 +785,6 @@ function extractAndAddMorphologicalParts(word: string, etymology: DetailedEtymol
             entry.associatedWords.push(word);
             if (isRoot) rootBookChanged = true; else affixBookChanged = true;
         }
-         // Update details if current analysis has more info
         if (item.detail.details && (!entry.part.details || item.detail.details.length > entry.part.details.length)) {
             entry.part.details = item.detail.details;
             if (isRoot) rootBookChanged = true; else affixBookChanged = true;
@@ -786,9 +835,9 @@ function renderBookList(
     if (itemsToRender.length === 0) {
         if (searchTerm && bookData.length > 0) {
             emptyMessageP.textContent = `没有找到与 "${searchTerm}" 相关的${bookTypeLabel}。`;
-        } else if (showOnlyMarked && bookData.some(e => e.part.marked)) { // Check if there were marked items before search
+        } else if (showOnlyMarked && bookData.some(e => e.part.marked)) { 
              emptyMessageP.textContent = emptyMsgWhenFiltered;
-        } else if (showOnlyMarked) { // No marked items at all
+        } else if (showOnlyMarked) { 
             emptyMessageP.textContent = emptyMsgWhenFiltered;
         }
         else {
@@ -861,12 +910,11 @@ function showMainAppView(restoreScroll = false) {
     if (mainContentArea) mainContentArea.classList.remove('hidden');
     if (itemDetailViewDiv) itemDetailViewDiv.classList.add('hidden');
 
-    // Restore body scroll
     document.body.style.position = '';
     document.body.style.top = '';
     document.body.style.width = '';
     document.body.style.overflowY = '';
-    if (restoreScroll) { // Only scroll if we explicitly want to (e.g., after modal close)
+    if (restoreScroll) { 
         window.scrollTo(0, lastBodyScrollTop);
     }
 }
@@ -874,12 +922,11 @@ function showMainAppView(restoreScroll = false) {
 function showItemDetailView(entry: MorphologicalBookEntry) {
     if (!itemDetailTitleH2 || !itemDetailDefinitionDiv || !itemDetailRelatedWordsUl || !itemDetailViewDiv || !mainContentArea) return;
 
-    // Save current scroll position and fix body
     lastBodyScrollTop = window.scrollY;
     document.body.style.position = 'fixed';
     document.body.style.top = `-${lastBodyScrollTop}px`;
     document.body.style.width = '100%';
-    document.body.style.overflowY = 'hidden'; // Or 'scroll' if modal itself might need scroll, but typically modal content scrolls
+    document.body.style.overflowY = 'hidden'; 
 
     const typeDisplay = entry.part.type === 'root' ? '词根' : entry.part.type === 'prefix' ? '前缀' : '后缀';
     itemDetailTitleH2.textContent = `${entry.part.name} (${typeDisplay}详情)`;
@@ -896,7 +943,6 @@ function showItemDetailView(entry: MorphologicalBookEntry) {
         p.appendChild(document.createTextNode(entry.part.examples.join(', ')));
         itemDetailDefinitionDiv.appendChild(p);
     }
-     // Display marked status
     const markedStatusP = createParagraph(entry.part.marked ? '<strong>状态:</strong> 已收藏 🌟' : '<strong>状态:</strong> 未收藏 ⭐', undefined, true);
     itemDetailDefinitionDiv.appendChild(markedStatusP);
 
@@ -908,7 +954,6 @@ function showItemDetailView(entry: MorphologicalBookEntry) {
             const li = document.createElement('li');
             li.textContent = vocabEntry.word;
             li.addEventListener('click', () => {
-                // When clicking a related word, it's like looking up a new word, so main view and scroll.
                 handleWordClickInVocab(vocabEntry.word); 
             });
             itemDetailRelatedWordsUl.appendChild(li);
@@ -925,12 +970,11 @@ function showItemDetailView(entry: MorphologicalBookEntry) {
 
 function handleMorphologicalPartClick(entry: MorphologicalBookEntry) {
     if (entry) {
-        showItemDetailView(entry); // This shows a modal, preserves main page scroll.
+        showItemDetailView(entry); 
     }
 }
 
 // --- Mark/Delete Handlers for Roots/Affixes ---
-// Added meaning to uniquely identify parts if names are the same
 function handleToggleMarkRootOrAffix(partName: string, type: 'root' | 'prefix' | 'suffix', meaning?: string) {
     const isRootBook = type === 'root';
     const targetBook = isRootBook ? rootBook : affixBook;
@@ -948,9 +992,8 @@ function handleToggleMarkRootOrAffix(partName: string, type: 'root' | 'prefix' |
             saveAffixBook();
             renderAffixBookList();
         }
-         // If item detail view is showing this item, update its marked status
         if (!itemDetailViewDiv?.classList.contains('hidden') && itemDetailTitleH2?.textContent?.startsWith(partName)) {
-            showItemDetailView(entry); // Re-render detail view
+            showItemDetailView(entry); 
         }
     }
 }
@@ -1031,10 +1074,10 @@ async function handleLearnWord(wordFromVocab?: string, shouldScrollToTop: boolea
     clearPreviousData();
     showLoading(true);
     initialMessageDiv?.classList.add('hidden');
-    showMainAppView(false); // Ensure main view is visible, don't restore scroll yet
+    showMainAppView(false); 
 
     let genAIResponse: GenerateContentResponse | undefined;
-    let jsonString: string = ''; // Declare jsonString here
+    let jsonString: string = ''; 
 
     const prompt = `
 你是一位专业的语言学家和词典编纂者。请使用“四象限多感官记单词法”来分析英文单词 "${wordToLearn}"。
@@ -1055,7 +1098,7 @@ JSON结构要求：
         "senseTitle": "例如：'包裹，邮包' (名词) 📦 (中文词性和可选表情符号)",
         "coreFeeling": "对此特定含义的核心感觉画面的详细中文描述。",
         "contexts": [ 
-          { "sentence": {"en": "English sentence 1.", "zh": "中文例句1。"}, "youglishSearchUrl": "可选的Youglish URL" }
+          { "sentence": {"en": "English sentence 1.", "zh": "中文例句1。"} }
         ] 
       }
     ],
@@ -1118,10 +1161,35 @@ JSON结构要求：
         const displayWord = data.word || wordToLearn;
         data.word = displayWord;
 
+        // Generate images for each sense based on its first context sentence
+        if (data.quadrant1 && data.quadrant1.senses && Array.isArray(data.quadrant1.senses)) {
+            for (const sense of data.quadrant1.senses) {
+                if (sense.contexts && sense.contexts.length > 0) {
+                    const firstContextSentence = sense.contexts[0].sentence.en;
+                    sense.imageContextSentence = firstContextSentence; // Store for alt text
+                    try {
+                        const imagePrompt = `Create a clear and accurate illustration for the English word "${displayWord}" as used in the sentence: "${firstContextSentence}". The image should visually emphasize the element representing "${displayWord}" in this specific scene. Image style: educational, conceptual, directly representative of the sentence's meaning.`;
+                        
+                        const imageResponse = await ai.models.generateImages({
+                            model: 'imagen-3.0-generate-002',
+                            prompt: imagePrompt,
+                            config: { numberOfImages: 1, outputMimeType: 'image/jpeg' },
+                        });
+                        if (imageResponse.generatedImages && imageResponse.generatedImages.length > 0) {
+                            const base64ImageBytes: string = imageResponse.generatedImages[0].image.imageBytes;
+                            sense.imageUrl = `data:image/jpeg;base64,${base64ImageBytes}`;
+                        }
+                    } catch (imgError) {
+                        console.error(`Failed to generate image for sense "${sense.senseTitle}" (context: "${firstContextSentence}"):`, imgError);
+                    }
+                }
+            }
+        }
+
         displayAnalysis(data);
         addWordToVocabulary(displayWord, data);
         
-        if (shouldScrollToTop || !wordFromVocab) { // Scroll if initiated from input or explicitly requested
+        if (shouldScrollToTop || !wordFromVocab) { 
              window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
@@ -1150,23 +1218,23 @@ JSON结构要求：
         showError(message);
     } finally {
         showLoading(false);
-        if (!wordFromVocab) wordInput.value = ''; // Clear input only if not from vocab click
+        if (!wordFromVocab) wordInput.value = ''; 
     }
 }
 
 // --- Event Listeners and Initialization ---
 if (learnButton) {
-    learnButton.addEventListener('click', () => handleLearnWord(undefined, true)); // From button, scroll
+    learnButton.addEventListener('click', () => handleLearnWord(undefined, true)); 
 }
 if (wordInput) {
     wordInput.addEventListener('keypress', (event) => {
         if (event.key === 'Enter') {
-            handleLearnWord(undefined, true); // From input enter, scroll
+            handleLearnWord(undefined, true); 
         }
     });
 }
 if (backToMainViewButton) {
-    backToMainViewButton.addEventListener('click', () => showMainAppView(true)); // Restore scroll when closing modal
+    backToMainViewButton.addEventListener('click', () => showMainAppView(true)); 
 }
 
 if (toggleFilterVocabButton) {
@@ -1189,7 +1257,7 @@ function initializeApp() {
     loadVocabulary();
     loadRootBook();
     loadAffixBook();
-    showMainAppView(false); // Initial load, don't try to restore scroll
+    showMainAppView(false); 
 
     const isApiKeyMissing = !API_KEY;
     if (learnButton) learnButton.disabled = isApiKeyMissing;
@@ -1207,8 +1275,10 @@ function initializeApp() {
         } else if (initialMessageDiv) {
             initialMessageDiv.classList.add('hidden');
         }
+        if (!('speechSynthesis' in window)) {
+            console.warn("此浏览器不支持 SpeechSynthesis API。句子朗读功能将不可用。");
+        }
     }
-     // Initialize button texts based on default filter state (false = "Show Favorites")
     [toggleFilterVocabButton, toggleFilterRootsButton, toggleFilterAffixesButton].forEach(button => {
         if (button) button.textContent = '显示收藏';
     });
