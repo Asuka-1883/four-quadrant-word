@@ -272,7 +272,7 @@ footer {
     display: grid;
     grid-template-columns: 1fr; /* Default to single column */
     gap: 25px; /* Consistent gap */
-    margin-top: 40px;
+    margin-bottom: 30px; /* Space below the collections grid */
 }
 
 @media (min-width: 768px) { /* Medium screens - 2 columns */
@@ -304,15 +304,37 @@ footer {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 15px;
+    flex-wrap: wrap; 
+    gap: 10px;
 }
 
-.collection-container h2 {
+.collection-header h2 {
     font-size: 1.8em;
     color: #3498db;
-    margin-top: 0;
-    margin-bottom: 0; /* Adjusted due to flex layout in header */
+    margin: 0;
     text-align: left;
+    flex-shrink: 0; 
 }
+
+.collection-header .controls-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-grow: 1; 
+    justify-content: flex-end;
+}
+
+.search-book-input {
+    padding: 6px 10px;
+    font-size: 0.9em;
+    border: 1px solid #bdc3c7;
+    border-radius: 4px;
+    height: 30px; 
+    box-sizing: border-box;
+    flex-grow: 1;
+    max-width: 250px;
+}
+
 
 .toggle-filter-button {
     padding: 6px 12px;
@@ -323,6 +345,9 @@ footer {
     border-radius: 4px;
     cursor: pointer;
     transition: background-color 0.3s ease;
+    height: 30px; 
+    box-sizing: border-box;
+    flex-shrink: 0;
 }
 
 .toggle-filter-button:hover {
@@ -367,18 +392,23 @@ footer {
     cursor: pointer;
     display: flex; /* For aligning text and type label if needed */
     align-items: baseline;
+    min-width: 0; /* Fix for flex item overflow */
 }
 
 
 .list-item .item-text { /* Shared class for word-text, affix-text, root-text */
     font-size: 1.1em;
     color: #2c3e50;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .list-item .item-type-label { /* For (词根), (前缀), (后缀) */
     font-size: 0.9em;
     color: #7f8c8d;
     margin-left: 8px;
     white-space: nowrap;
+    flex-shrink: 0;
 }
 
 
@@ -552,11 +582,18 @@ footer {
     }
      .collection-header {
         flex-direction: column;
-        align-items: flex-start;
-        gap: 10px;
+        align-items: stretch; /* Make items full width */
     }
-    .collection-container h2 {
+    .collection-header h2 {
         font-size: 1.5em;
+        margin-bottom: 10px; /* Space after title when stacked */
+    }
+     .collection-header .controls-group {
+        width: 100%; 
+        justify-content: space-between; 
+    }
+    .search-book-input {
+        max-width: none; 
     }
     .list-item .item-text {
         font-size: 1em;

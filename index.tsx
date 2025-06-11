@@ -1,4 +1,3 @@
-
 import { inject } from "@vercel/analytics";
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 inject(); 
@@ -38,17 +37,22 @@ const q4Content = document.querySelector('#quadrant4 .quadrant-content') as HTML
 const vocabularyListUl = document.getElementById('vocabulary-list') as HTMLUListElement;
 const emptyVocabularyMessageP = document.getElementById('empty-vocabulary-message');
 const toggleFilterVocabButton = document.getElementById('toggle-filter-vocab-button') as HTMLButtonElement;
+const searchVocabInput = document.getElementById('search-vocab-input') as HTMLInputElement;
 
 
 // Root Book DOM Elements
 const rootListUl = document.getElementById('root-list') as HTMLUListElement;
 const emptyRootBookMessageP = document.getElementById('empty-root-book-message');
 const toggleFilterRootsButton = document.getElementById('toggle-filter-roots-button') as HTMLButtonElement;
+const searchRootsInput = document.getElementById('search-roots-input') as HTMLInputElement;
+
 
 // Affix Book DOM Elements (for prefixes and suffixes)
 const affixListUl = document.getElementById('affix-list') as HTMLUListElement;
 const emptyAffixBookMessageP = document.getElementById('empty-affix-book-message');
 const toggleFilterAffixesButton = document.getElementById('toggle-filter-affixes-button') as HTMLButtonElement;
+const searchAffixesInput = document.getElementById('search-affixes-input') as HTMLInputElement;
+
 
 // Item Detail View DOM Elements (replaces Affix Detail View)
 const itemDetailViewDiv = document.getElementById('item-detail-view') as HTMLDivElement;
@@ -78,10 +82,10 @@ interface EtymologyPart {
 }
 interface DetailedEtymology {
     main?: string;
-    root?: EtymologyPart;
-    prefix?: EtymologyPart;
-    suffix?: EtymologyPart;
-    literalLogic?: string;
+    prefix?: EtymologyPart; // Made optional as AI might not always return it if truly "none"
+    root?: EtymologyPart;   // Made optional
+    suffix?: EtymologyPart; // Made optional
+    literalLogic?: string;  // Kept as optional for flexibility, though prompt requests it
 }
 interface WordAnalysisData {
     word: string;
@@ -146,7 +150,7 @@ interface MorphologicalBookEntry {
 
 // --- State Variables ---
 let vocabularyList: VocabularyEntry[] = [];
-const VOCABULARY_STORAGE_KEY = 'fourQuadrantVocabulary_v5'; // v5 for marked morphological parts
+const VOCABULARY_STORAGE_KEY = 'fourQuadrantVocabulary_v5';
 
 let rootBook: MorphologicalBookEntry[] = [];
 const ROOT_BOOK_STORAGE_KEY = 'fourQuadrantRootBook_v2';
@@ -157,6 +161,14 @@ const AFFIX_BOOK_STORAGE_KEY = 'fourQuadrantAffixBook_v2';
 let showOnlyMarkedVocab = false;
 let showOnlyMarkedRoots = false;
 let showOnlyMarkedAffixes = false;
+
+let lastBodyScrollTop = 0; // For preserving scroll position when modal is open
+
+const TRIVIAL_MORPHOLOGICAL_PARTS = new Set([
+    's', 'es', 'ed', 'ing', 'ly', '-', "'s", "s'", 
+    '无', '无前缀', '无词根', '无后缀', 'none', // Common "none" indicators
+    // Add single letters if they frequently appear as non-meaningful affixes
+]);
 
 // --- UI Helper Functions ---
 function showLoading(isLoading: boolean) {
@@ -300,7 +312,7 @@ function renderQuadrant1(data: WordAnalysisData['quadrant1']) {
         if (data.etymology.main) etymologyDiv.appendChild(createParagraph(data.etymology.main));
 
         const renderPart = (part: EtymologyPart | undefined, typeName: string) => {
-            if (part && part.name) {
+            if (part && part.name && !TRIVIAL_MORPHOLOGICAL_PARTS.has(part.name.toLowerCase())) { // Don't render "无" explicitly here
                 let partHtml = `<strong>${part.name} (${typeName}):</strong> 含义：'${part.meaning}'`;
                 if(part.origin) partHtml += `。来源：${part.origin}`;
                 if(part.details) partHtml += `。${part.details}`;
@@ -314,6 +326,8 @@ function renderQuadrant1(data: WordAnalysisData['quadrant1']) {
                     p.appendChild(document.createTextNode(part.examples.join('， ')));
                     etymologyDiv.appendChild(p);
                 }
+            } else if (part && part.name && (part.name.toLowerCase().startsWith("无") || part.name === "-")) {
+                 etymologyDiv.appendChild(createParagraph(`<strong>${typeName}:</strong> ${part.meaning || part.name}`, undefined, true));
             }
         };
         renderPart(data.etymology.prefix, '前缀');
@@ -322,6 +336,9 @@ function renderQuadrant1(data: WordAnalysisData['quadrant1']) {
         
         if (data.etymology.literalLogic) {
             etymologyDiv.appendChild(createParagraph(`<strong>字面逻辑:</strong> ${data.etymology.literalLogic}`, undefined, true));
+        } else {
+            // If AI was supposed to always provide literalLogic, and it's missing, we could note that
+            // etymologyDiv.appendChild(createParagraph("字面逻辑分析缺失。", "subtle-text"));
         }
         q1Content.appendChild(etymologyDiv);
     }
@@ -498,7 +515,9 @@ function addWordToVocabulary(wordToAdd: string, analysisData: WordAnalysisData) 
     }
     saveVocabulary();
     renderVocabularyList();
-    extractAndAddMorphologicalParts(wordToAdd, analysisData.quadrant1.etymology);
+    if (analysisData?.quadrant1?.etymology) {
+      extractAndAddMorphologicalParts(wordToAdd, analysisData.quadrant1.etymology);
+    }
 }
 
 function handleDeleteWordFromVocab(wordToDelete: string) {
@@ -536,32 +555,63 @@ function handleToggleMarkWordInVocab(wordToMark: string) {
 
 async function handleWordClickInVocab(word: string) {
     const entry = vocabularyList.find(e => e.word.toLowerCase() === word.toLowerCase());
-    wordInput.value = entry ? entry.word : word;
+    wordInput.value = entry ? entry.word : word; // Update input field with clicked word
 
     if (entry && entry.analysisData) {
         clearPreviousData();
         showLoading(true);
-        setTimeout(() => { 
-            displayAnalysis(entry.analysisData!);
-            showMainAppView();
-            showLoading(false);
-        }, 50);
+        // Short delay to allow UI to update before potentially expensive displayAnalysis
+        await new Promise(resolve => setTimeout(resolve, 20)); 
+        displayAnalysis(entry.analysisData!);
+        showMainAppView(true); // Ensure main view is visible and restore scroll if needed
+        showLoading(false);
+        window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll to top for word analysis
     } else {
-        await handleLearnWord(entry ? entry.word : word);
+        await handleLearnWord(entry ? entry.word : word, true); // Pass true to indicate scroll needed
     }
-    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+
 function renderVocabularyList() {
-    if (!vocabularyListUl || !emptyVocabularyMessageP) return;
+    if (!vocabularyListUl || !emptyVocabularyMessageP || !searchVocabInput) return;
     vocabularyListUl.innerHTML = '';
     
-    const itemsToRender = showOnlyMarkedVocab ? vocabularyList.filter(entry => entry.marked) : vocabularyList;
+    const searchTerm = searchVocabInput.value.toLowerCase().trim();
+    let itemsToRender = showOnlyMarkedVocab ? vocabularyList.filter(entry => entry.marked) : [...vocabularyList];
+
+    if (searchTerm) {
+        itemsToRender = itemsToRender.filter(entry => {
+            const wordMatch = entry.word.toLowerCase().includes(searchTerm);
+            if (wordMatch) return true;
+
+            if (entry.analysisData?.quadrant1) {
+                const q1 = entry.analysisData.quadrant1;
+                if (q1.overallCoreConcept?.toLowerCase().includes(searchTerm)) {
+                    return true;
+                }
+                if (q1.senses?.length) {
+                    for (const sense of q1.senses) {
+                        if (sense.senseTitle?.toLowerCase().includes(searchTerm) || 
+                            sense.coreFeeling?.toLowerCase().includes(searchTerm)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        });
+    }
 
     if (itemsToRender.length === 0) {
-        emptyVocabularyMessageP.textContent = showOnlyMarkedVocab ? '没有收藏的单词。' : '单词本是空的，快去学习新单词吧！';
+        if (searchTerm && (showOnlyMarkedVocab ? vocabularyList.some(e => e.marked) : vocabularyList.length > 0) ) {
+             emptyVocabularyMessageP.textContent = `没有找到与 "${searchTerm}" 相关的条目。`;
+        } else if (showOnlyMarkedVocab) {
+            emptyVocabularyMessageP.textContent = '没有收藏的单词。';
+        } else {
+            emptyVocabularyMessageP.textContent = '单词本是空的，快去学习新单词吧！';
+        }
         emptyVocabularyMessageP.classList.remove('hidden');
-        if (API_KEY && initialMessageDiv && wordAnalysisContainer?.classList.contains('hidden') && !showOnlyMarkedVocab) {
+        if (API_KEY && initialMessageDiv && wordAnalysisContainer?.classList.contains('hidden') && !showOnlyMarkedVocab && !searchTerm) {
             initialMessageDiv.classList.remove('hidden');
         }
         return;
@@ -644,7 +694,9 @@ function saveAffixBook() {
     try { localStorage.setItem(AFFIX_BOOK_STORAGE_KEY, JSON.stringify(affixBook)); } catch (e) { console.error("无法保存词缀本:", e); }
 }
 
-function extractAndAddMorphologicalParts(word: string, etymology: DetailedEtymology) {
+function extractAndAddMorphologicalParts(word: string, etymology: DetailedEtymology | undefined) {
+    if (!etymology) return;
+
     const partsToAdd: { detail: EtymologyPart, type: 'root' | 'prefix' | 'suffix' }[] = [];
     if (etymology.prefix && etymology.prefix.name) partsToAdd.push({ detail: etymology.prefix, type: 'prefix' });
     if (etymology.root && etymology.root.name) partsToAdd.push({ detail: etymology.root, type: 'root' });
@@ -654,11 +706,23 @@ function extractAndAddMorphologicalParts(word: string, etymology: DetailedEtymol
     let affixBookChanged = false;
 
     partsToAdd.forEach(item => {
+        const partNameLower = item.detail.name.trim().toLowerCase();
+        
+        // Filter out trivial or "none" parts before adding to books
+        if (TRIVIAL_MORPHOLOGICAL_PARTS.has(partNameLower)) {
+            console.log(`Skipping storage of trivial/placeholder part: ${item.detail.name} (${item.type})`);
+            return; 
+        }
+
         const isRoot = item.type === 'root';
         const targetBook = isRoot ? rootBook : affixBook;
-        const partKey = `${item.type}-${item.detail.name.toLowerCase()}`;
+        // Use a more robust key: type + name + meaning (if available) to differentiate similar names with different meanings
+        const partKey = `${item.type}-${partNameLower}-${(item.detail.meaning || '').toLowerCase()}`; 
         
-        let entry = targetBook.find(e => `${e.part.type}-${e.part.name.toLowerCase()}` === partKey);
+        let entry = targetBook.find(e => 
+            `${e.part.type}-${e.part.name.toLowerCase()}-${(e.part.meaning || '').toLowerCase()}` === partKey
+        );
+
         if (!entry) {
             entry = {
                 part: { ...item.detail, type: item.type, marked: false }, // Initialize marked
@@ -669,6 +733,15 @@ function extractAndAddMorphologicalParts(word: string, etymology: DetailedEtymol
         }
         if (!entry.associatedWords.map(w => w.toLowerCase()).includes(word.toLowerCase())) {
             entry.associatedWords.push(word);
+            if (isRoot) rootBookChanged = true; else affixBookChanged = true;
+        }
+         // Update details if current analysis has more info
+        if (item.detail.details && (!entry.part.details || item.detail.details.length > entry.part.details.length)) {
+            entry.part.details = item.detail.details;
+            if (isRoot) rootBookChanged = true; else affixBookChanged = true;
+        }
+        if (item.detail.origin && (!entry.part.origin || item.detail.origin.length > entry.part.origin.length)) {
+            entry.part.origin = item.detail.origin;
             if (isRoot) rootBookChanged = true; else affixBookChanged = true;
         }
     });
@@ -685,22 +758,42 @@ function extractAndAddMorphologicalParts(word: string, etymology: DetailedEtymol
     }
 }
 
+
 function renderBookList(
     listUl: HTMLUListElement | null, 
     emptyMessageP: HTMLElement | null, 
     bookData: MorphologicalBookEntry[],
     bookTypeLabel: '词根' | '词缀',
     showOnlyMarked: boolean,
+    searchTerm: string,
     emptyMsgWhenFiltered: string,
     emptyMsgGeneral: string
 ) {
     if (!listUl || !emptyMessageP) return;
     listUl.innerHTML = '';
 
-    const itemsToRender = showOnlyMarked ? bookData.filter(entry => entry.part.marked) : bookData;
+    let itemsToRender = showOnlyMarked ? bookData.filter(entry => entry.part.marked) : [...bookData];
+
+    if (searchTerm) {
+        itemsToRender = itemsToRender.filter(entry => 
+            entry.part.name.toLowerCase().includes(searchTerm) ||
+            (entry.part.meaning && entry.part.meaning.toLowerCase().includes(searchTerm)) ||
+            (entry.part.origin && entry.part.origin.toLowerCase().includes(searchTerm)) ||
+            (entry.part.details && entry.part.details.toLowerCase().includes(searchTerm))
+        );
+    }
 
     if (itemsToRender.length === 0) {
-        emptyMessageP.textContent = showOnlyMarked ? emptyMsgWhenFiltered : emptyMsgGeneral;
+        if (searchTerm && bookData.length > 0) {
+            emptyMessageP.textContent = `没有找到与 "${searchTerm}" 相关的${bookTypeLabel}。`;
+        } else if (showOnlyMarked && bookData.some(e => e.part.marked)) { // Check if there were marked items before search
+             emptyMessageP.textContent = emptyMsgWhenFiltered;
+        } else if (showOnlyMarked) { // No marked items at all
+            emptyMessageP.textContent = emptyMsgWhenFiltered;
+        }
+        else {
+            emptyMessageP.textContent = emptyMsgGeneral;
+        }
         emptyMessageP.classList.remove('hidden');
         return;
     }
@@ -734,13 +827,13 @@ function renderBookList(
         markButton.className = 'mark-button action-button';
         markButton.innerHTML = entry.part.marked ? '🌟' : '⭐';
         markButton.setAttribute('aria-label', entry.part.marked ? `取消标记 ${entry.part.name}` : `标记 ${entry.part.name}`);
-        markButton.addEventListener('click', () => handleToggleMarkRootOrAffix(entry.part.name, entry.part.type));
+        markButton.addEventListener('click', () => handleToggleMarkRootOrAffix(entry.part.name, entry.part.type, entry.part.meaning));
         
         const deleteButton = document.createElement('button');
         deleteButton.className = 'delete-button action-button';
         deleteButton.innerHTML = '🗑️';
         deleteButton.setAttribute('aria-label', `删除 ${entry.part.name}`);
-        deleteButton.addEventListener('click', () => handleDeleteRootOrAffix(entry.part.name, entry.part.type));
+        deleteButton.addEventListener('click', () => handleDeleteRootOrAffix(entry.part.name, entry.part.type, entry.part.meaning));
 
         actionsDiv.appendChild(markButton);
         actionsDiv.appendChild(deleteButton);
@@ -752,20 +845,41 @@ function renderBookList(
 }
 
 function renderRootBookList() {
-    renderBookList(rootListUl, emptyRootBookMessageP, rootBook, '词根', showOnlyMarkedRoots, '没有收藏的词根。', '词根本是空的。');
+    if (!searchRootsInput) return;
+    const searchTerm = searchRootsInput.value.toLowerCase().trim();
+    renderBookList(rootListUl, emptyRootBookMessageP, rootBook, '词根', showOnlyMarkedRoots, searchTerm, '没有收藏的词根。', '词根本是空的。');
 }
 function renderAffixBookList() {
-    renderBookList(affixListUl, emptyAffixBookMessageP, affixBook, '词缀', showOnlyMarkedAffixes, '没有收藏的词缀。', '词缀本是空的。');
+    if(!searchAffixesInput) return;
+    const searchTerm = searchAffixesInput.value.toLowerCase().trim();
+    renderBookList(affixListUl, emptyAffixBookMessageP, affixBook, '词缀', showOnlyMarkedAffixes, searchTerm, '没有收藏的词缀。', '词缀本是空的。');
 }
 
+
 // --- Item Detail View Functions (for Roots/Affixes) ---
-function showMainAppView() {
+function showMainAppView(restoreScroll = false) {
     if (mainContentArea) mainContentArea.classList.remove('hidden');
     if (itemDetailViewDiv) itemDetailViewDiv.classList.add('hidden');
+
+    // Restore body scroll
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.width = '';
+    document.body.style.overflowY = '';
+    if (restoreScroll) { // Only scroll if we explicitly want to (e.g., after modal close)
+        window.scrollTo(0, lastBodyScrollTop);
+    }
 }
 
 function showItemDetailView(entry: MorphologicalBookEntry) {
     if (!itemDetailTitleH2 || !itemDetailDefinitionDiv || !itemDetailRelatedWordsUl || !itemDetailViewDiv || !mainContentArea) return;
+
+    // Save current scroll position and fix body
+    lastBodyScrollTop = window.scrollY;
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${lastBodyScrollTop}px`;
+    document.body.style.width = '100%';
+    document.body.style.overflowY = 'hidden'; // Or 'scroll' if modal itself might need scroll, but typically modal content scrolls
 
     const typeDisplay = entry.part.type === 'root' ? '词根' : entry.part.type === 'prefix' ? '前缀' : '后缀';
     itemDetailTitleH2.textContent = `${entry.part.name} (${typeDisplay}详情)`;
@@ -794,7 +908,8 @@ function showItemDetailView(entry: MorphologicalBookEntry) {
             const li = document.createElement('li');
             li.textContent = vocabEntry.word;
             li.addEventListener('click', () => {
-                handleWordClickInVocab(vocabEntry.word);
+                // When clicking a related word, it's like looking up a new word, so main view and scroll.
+                handleWordClickInVocab(vocabEntry.word); 
             });
             itemDetailRelatedWordsUl.appendChild(li);
         }
@@ -810,15 +925,20 @@ function showItemDetailView(entry: MorphologicalBookEntry) {
 
 function handleMorphologicalPartClick(entry: MorphologicalBookEntry) {
     if (entry) {
-        showItemDetailView(entry);
+        showItemDetailView(entry); // This shows a modal, preserves main page scroll.
     }
 }
 
 // --- Mark/Delete Handlers for Roots/Affixes ---
-function handleToggleMarkRootOrAffix(partName: string, type: 'root' | 'prefix' | 'suffix') {
+// Added meaning to uniquely identify parts if names are the same
+function handleToggleMarkRootOrAffix(partName: string, type: 'root' | 'prefix' | 'suffix', meaning?: string) {
     const isRootBook = type === 'root';
     const targetBook = isRootBook ? rootBook : affixBook;
-    const entry = targetBook.find(e => e.part.name.toLowerCase() === partName.toLowerCase() && e.part.type === type);
+    const entry = targetBook.find(e => 
+        e.part.name.toLowerCase() === partName.toLowerCase() && 
+        e.part.type === type &&
+        (e.part.meaning || '').toLowerCase() === (meaning || '').toLowerCase()
+    );
     if (entry) {
         entry.part.marked = !entry.part.marked;
         if (isRootBook) {
@@ -828,22 +948,35 @@ function handleToggleMarkRootOrAffix(partName: string, type: 'root' | 'prefix' |
             saveAffixBook();
             renderAffixBookList();
         }
+         // If item detail view is showing this item, update its marked status
+        if (!itemDetailViewDiv?.classList.contains('hidden') && itemDetailTitleH2?.textContent?.startsWith(partName)) {
+            showItemDetailView(entry); // Re-render detail view
+        }
     }
 }
 
-function handleDeleteRootOrAffix(partName: string, type: 'root' | 'prefix' | 'suffix') {
+function handleDeleteRootOrAffix(partName: string, type: 'root' | 'prefix' | 'suffix', meaning?: string) {
     const isRootBook = type === 'root';
+    const partNameLower = partName.toLowerCase();
+    const meaningLower = (meaning || '').toLowerCase();
+
     if (isRootBook) {
-        rootBook = rootBook.filter(e => !(e.part.name.toLowerCase() === partName.toLowerCase() && e.part.type === type));
+        rootBook = rootBook.filter(e => 
+            !(e.part.name.toLowerCase() === partNameLower && 
+              e.part.type === type &&
+              (e.part.meaning || '').toLowerCase() === meaningLower)
+        );
         saveRootBook();
         renderRootBookList();
     } else {
-        affixBook = affixBook.filter(e => !(e.part.name.toLowerCase() === partName.toLowerCase() && e.part.type === type));
+        affixBook = affixBook.filter(e => 
+            !(e.part.name.toLowerCase() === partNameLower && 
+              e.part.type === type &&
+              (e.part.meaning || '').toLowerCase() === meaningLower)
+        );
         saveAffixBook();
         renderAffixBookList();
     }
-    // Note: This does not currently remove the now-deleted root/affix from the etymology section
-    // of words in the vocabularyList that might still reference it. This could be a future enhancement.
 }
 
 
@@ -884,7 +1017,7 @@ function toggleFilter(bookType: 'vocabulary' | 'roots' | 'affixes') {
 
 
 // --- Main Learning Function ---
-async function handleLearnWord(wordFromVocab?: string) {
+async function handleLearnWord(wordFromVocab?: string, shouldScrollToTop: boolean = false) {
     const wordToLearn = wordFromVocab || wordInput.value.trim();
     if (!wordToLearn) {
         showError("请输入一个单词。");
@@ -898,9 +1031,10 @@ async function handleLearnWord(wordFromVocab?: string) {
     clearPreviousData();
     showLoading(true);
     initialMessageDiv?.classList.add('hidden');
-    showMainAppView();
+    showMainAppView(false); // Ensure main view is visible, don't restore scroll yet
 
     let genAIResponse: GenerateContentResponse | undefined;
+    let jsonString: string = ''; // Declare jsonString here
 
     const prompt = `
 你是一位专业的语言学家和词典编纂者。请使用“四象限多感官记单词法”来分析英文单词 "${wordToLearn}"。
@@ -908,6 +1042,9 @@ async function handleLearnWord(wordFromVocab?: string) {
 对于需要中英对照的字段，请使用 {"en": "English text", "zh": "中文文本"} 的格式。
 不要在任何文本字段中使用Markdown斜体标记 (如 *)。
 JSON中的 "word" 键应准确反映所分析的单词，包括其原始大小写。
+
+在 'etymology' 部分，\`prefix\`, \`root\`, \`suffix\` 对象结构本身，以及 \`literalLogic\` 字段必须总是存在于JSON响应中。
+对于 \`prefix\`, \`root\`, \`suffix\`，如果一个单词没有某个特定的词缀或词根，其 \`name\` 字段应明确指出这一点 (例如, \`"name": "无前缀"\` 或 \`"name": "-"\`)，而 \`meaning\` 字段可以解释或留空。\`literalLogic\` 必须提供，即使它描述的是一个不可分解的单词的整体意义。
 
 JSON结构要求：
 - "word": "原始大小写的单词"
@@ -919,25 +1056,24 @@ JSON结构要求：
         "coreFeeling": "对此特定含义的核心感觉画面的详细中文描述。",
         "contexts": [ 
           { "sentence": {"en": "English sentence 1.", "zh": "中文例句1。"}, "youglishSearchUrl": "可选的Youglish URL" }
-          // 最多3个语境示例
         ] 
       }
     ],
     "synonymsAntonyms": { 
-      "category1_synonyms": [ {"en": "synonym1", "zh": "近义词1"}, {"en": "synonym2", "zh": "近义词2"} ],
+      "category1_synonyms": [ {"en": "synonym1", "zh": "近义词1"} ],
       "category2_antonyms": [ {"en": "antonym1", "zh": "反义词1"} ]
     },
     "etymology": { 
       "main": "（可选）关于词源的总体介绍性中文文字。",
-      "prefix": { "name": "前缀名", "meaning": "中文含义", "origin": "来源", "details": "可选中文细节", "examples": ["例词1", "例词2"] },
-      "root": { "name": "词根名", "meaning": "中文含义", "origin": "来源", "details": "可选中文细节", "examples": ["例词1", "例词2"] },
-      "suffix": { "name": "后缀名", "meaning": "中文含义", "origin": "来源", "details": "可选中文细节", "examples": ["例词1", "例词2"] },
-      "literalLogic": "（可选）基于词根词缀的字面逻辑中文解释。"
+      "prefix": { "name": "前缀名 (如果无, name应为 '无' 或具体说明)", "meaning": "中文含义", "origin": "来源", "details": "可选中文细节", "examples": ["例词1", "例词2"] },
+      "root": { "name": "词根名 (如果无, name应为 '无' 或具体说明)", "meaning": "中文含义", "origin": "来源", "details": "可选中文细节", "examples": ["例词1", "例词2"] },
+      "suffix": { "name": "后缀名 (如果无, name应为 '无' 或具体说明)", "meaning": "中文含义", "origin": "来源", "details": "可选中文细节", "examples": ["例词1", "例词2"] },
+      "literalLogic": "基于词根词缀的字面逻辑中文解释。如果单词不含标准词根词缀，请解释其可能的构成方式或字面意义的来源。此字段为【必需】。"
     }
   }
 - "quadrant2": {
     "pronunciation": { "ipa": "IPA发音", "tip": "中文发音技巧/提示" },
-    "collocations": [ {"en": "collocation 1", "zh": "固定搭配1"} ] // 最多3个
+    "collocations": [ {"en": "collocation 1", "zh": "固定搭配1"} ]
   }
 - "quadrant3": {
     "spellingBreakdown": "单词的中文拼写分解或记忆提示。",
@@ -971,7 +1107,7 @@ JSON结构要求：
             }
         });
 
-        let jsonString = genAIResponse.text.trim();
+        jsonString = genAIResponse.text.trim();
         const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
         const match = jsonString.match(fenceRegex);
         if (match && match[2]) {
@@ -984,41 +1120,53 @@ JSON结构要求：
 
         displayAnalysis(data);
         addWordToVocabulary(displayWord, data);
+        
+        if (shouldScrollToTop || !wordFromVocab) { // Scroll if initiated from input or explicitly requested
+             window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
 
     } catch (error) {
         console.error("获取或解析单词数据时出错:", error);
         let message = `学习单词 "${wordToLearn}" 失败。`;
         if (error instanceof Error) {
+            message += ` 错误详情: ${error.message}`;
             if (error.message.includes('JSON')) {
-                message += "响应格式无效。请检查API返回的数据。";
-            } else if (genAIResponse && genAIResponse.text && genAIResponse.text.length < 100) {
-                 message += `收到的API响应似乎不完整或无效: ${genAIResponse.text.substring(0,100)}...`;
-            } else {
-                 message += `错误详情: ${error.message}`;
+                message += " 响应格式可能无效。";
             }
-        } else {
-            message += "发生未知错误。";
+            if ((error as any).status === 'NOT_FOUND' || (error as any).code === 404){
+                 message += " 指定的模型未找到，请检查模型名称。";
+            }
+        } else if (typeof error === 'object' && error !== null && 'message' in error) {
+             message += ` 错误详情: ${(error as {message:string}).message}`;
+        }
+        else {
+            message += " 发生未知错误。";
+        }
+        
+        if (genAIResponse && genAIResponse.text && genAIResponse.text.length < 200 && jsonString && !jsonString.startsWith("{")) {
+             message += ` API响应似乎不完整或无效: ${genAIResponse.text.substring(0,100)}...`;
         }
         showError(message);
     } finally {
         showLoading(false);
-        if (!wordFromVocab) wordInput.value = '';
+        if (!wordFromVocab) wordInput.value = ''; // Clear input only if not from vocab click
     }
 }
 
 // --- Event Listeners and Initialization ---
 if (learnButton) {
-    learnButton.addEventListener('click', () => handleLearnWord());
+    learnButton.addEventListener('click', () => handleLearnWord(undefined, true)); // From button, scroll
 }
 if (wordInput) {
     wordInput.addEventListener('keypress', (event) => {
         if (event.key === 'Enter') {
-            handleLearnWord();
+            handleLearnWord(undefined, true); // From input enter, scroll
         }
     });
 }
 if (backToMainViewButton) {
-    backToMainViewButton.addEventListener('click', showMainAppView);
+    backToMainViewButton.addEventListener('click', () => showMainAppView(true)); // Restore scroll when closing modal
 }
 
 if (toggleFilterVocabButton) {
@@ -1031,13 +1179,17 @@ if (toggleFilterAffixesButton) {
     toggleFilterAffixesButton.addEventListener('click', () => toggleFilter('affixes'));
 }
 
+searchVocabInput?.addEventListener('input', renderVocabularyList);
+searchRootsInput?.addEventListener('input', renderRootBookList);
+searchAffixesInput?.addEventListener('input', renderAffixBookList);
+
 
 function initializeApp() {
     showLoading(false);
     loadVocabulary();
     loadRootBook();
     loadAffixBook();
-    showMainAppView();
+    showMainAppView(false); // Initial load, don't try to restore scroll
 
     const isApiKeyMissing = !API_KEY;
     if (learnButton) learnButton.disabled = isApiKeyMissing;
