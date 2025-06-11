@@ -1,8 +1,7 @@
 
-import { inject } from "@vercel/analytics" 添加这一行
+import { inject } from "@vercel/analytics";
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
-inject(); // <-- 添加这一行
-//
+inject(); 
 // Ensure API_KEY is handled by the execution environment.
 const API_KEY = process.env.API_KEY;
 if (!API_KEY) {
