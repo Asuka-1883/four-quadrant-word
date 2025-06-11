@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>四象限单词记忆法</title>
+    <link rel="stylesheet" href="index.css">
+    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+<script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://esm.sh/@google/genai@^1.4.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>四象限单词记忆法</h1>
+        </header>
+        <main id="main-content-area">
+            <div id="input-container">
+                <input type="text" id="word-input" placeholder="输入要学习的单词" aria-label="要学习的单词">
+                <button id="learn-button">学习单词</button>
+            </div>
+
+            <div id="loading-spinner" class="hidden" aria-label="正在加载单词详情">
+                <div class="spinner"></div>
+            </div>
+            <div id="error-message" class="hidden" role="alert"></div>
+
+            <div id="word-analysis-container" class="hidden">
+                <h2 id="central-word" aria-live="polite"></h2>
+                <div id="quadrants-grid">
+                    <section id="quadrant1" class="quadrant" aria-labelledby="q1-title">
+                        <h3 id="q1-title"><span role="img" aria-label="调色板图标">🎨</span> 感觉与画面</h3>
+                        <div class="quadrant-content"></div>
+                    </section>
+                    <section id="quadrant2" class="quadrant" aria-labelledby="q2-title">
+                        <h3 id="q2-title"><span role="img" aria-label="说话的头像图标">🗣️</span> 发音与节奏</h3>
+                        <div class="quadrant-content"></div>
+                    </section>
+                    <section id="quadrant3" class="quadrant" aria-labelledby="q3-title">
+                        <h3 id="q3-title"><span role="img" aria-label="眼睛图标">👁️</span> 单词形态</h3>
+                        <div class="quadrant-content"></div>
+                    </section>
+                    <section id="quadrant4" class="quadrant" aria-labelledby="q4-title">
+                        <h3 id="q4-title"><span role="img" aria-label="大脑图标">🧠</span> 练习与掌握</h3>
+                        <div class="quadrant-content"></div>
+                    </section>
+                </div>
+            </div>
+            <div id="initial-message">
+                <p>在上方输入单词，然后点击“学习单词”按钮，使用四象限法查看其分析。</p>
+            </div>
+
+            <div id="user-collections-grid">
+                <section id="vocabulary-book-container" class="collection-container" aria-labelledby="vocab-book-title">
+                    <div class="collection-header">
+                        <h2 id="vocab-book-title">我的单词本</h2>
+                        <button id="toggle-filter-vocab-button" class="toggle-filter-button" aria-pressed="false" data-book="vocabulary">显示收藏</button>
+                    </div>
+                    <ul id="vocabulary-list">
+                        <!-- 单词将在这里动态生成 -->
+                    </ul>
+                    <p id="empty-vocabulary-message" class="hidden">单词本是空的，快去学习新单词吧！</p>
+                </section>
+
+                <section id="root-book-container" class="collection-container" aria-labelledby="root-book-title">
+                     <div class="collection-header">
+                        <h2 id="root-book-title">词根本</h2>
+                        <button id="toggle-filter-roots-button" class="toggle-filter-button" aria-pressed="false" data-book="roots">显示收藏</button>
+                    </div>
+                    <ul id="root-list">
+                        <!-- 词根将在这里动态生成 -->
+                    </ul>
+                    <p id="empty-root-book-message" class="hidden">词根本是空的。</p>
+                </section>
+
+                <section id="affix-book-container" class="collection-container" aria-labelledby="affix-book-title">
+                    <div class="collection-header">
+                        <h2 id="affix-book-title">词缀本</h2>
+                        <button id="toggle-filter-affixes-button" class="toggle-filter-button" aria-pressed="false" data-book="affixes">显示收藏</button>
+                    </div>
+                    <ul id="affix-list">
+                        <!-- 词缀将在这里动态生成 -->
+                    </ul>
+                    <p id="empty-affix-book-message" class="hidden">词缀本是空的。</p>
+                </section>
+            </div>
+        </main>
+
+        <div id="item-detail-view" class="hidden" role="dialog" aria-modal="true" aria-labelledby="item-detail-title">
+            <div id="item-detail-content">
+                <h2 id="item-detail-title"></h2>
+                <div id="item-detail-definition"></div>
+                <h3>相关单词 (来自我的单词本):</h3>
+                <ul id="item-detail-related-words-list"></ul>
+                <button id="back-to-main-view-button" aria-label="返回主视图">返回</button>
+            </div>
+        </div>
+
+        <footer>
+            <p>由 Gemini 驱动</p>
+        </footer>
+    </div>
+    <script type="module" src="index.tsx"></script>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>

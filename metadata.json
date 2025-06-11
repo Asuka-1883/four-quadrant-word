@@ -1,0 +1,6 @@
+{
+  "name": "四象限单词记忆法",
+  "description": "一个交互式应用，使用四象限多感官方法学习单词，由 Gemini 驱动。",
+  "requestFramePermissions": [],
+  "prompt": ""
+}

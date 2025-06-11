@@ -1,0 +1,574 @@
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, "PingFang SC", "Microsoft YaHei";
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+    background-color: #f4f7f9;
+    color: #333;
+    display: flex;
+    justify-content: center;
+    min-height: 100vh;
+    font-style: normal; /* Ensure no default italics */
+}
+
+#app {
+    width: 100%;
+    max-width: 1300px; /* Increased max-width for 3 columns */
+    margin: 0 auto;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 30px;
+    color: #2c3e50;
+}
+
+header h1 {
+    font-size: 2.5em;
+    font-weight: 300;
+}
+
+#input-container {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 30px;
+    justify-content: center;
+    align-items: center;
+}
+
+#word-input {
+    padding: 12px 15px;
+    font-size: 1.1em;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    flex-grow: 1;
+    max-width: 400px;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.06);
+}
+
+#learn-button {
+    padding: 12px 25px;
+    font-size: 1.1em;
+    background-color: #3498db;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+#learn-button:hover {
+    background-color: #2980b9;
+}
+
+#learn-button:disabled {
+    background-color: #bdc3c7;
+    cursor: not-allowed;
+}
+
+
+#central-word {
+    text-align: center;
+    font-size: 3em;
+    margin-bottom: 30px;
+    color: #2c3e50;
+    font-weight: 500;
+}
+
+#quadrants-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 25px;
+    margin-bottom: 30px;
+}
+
+.quadrant {
+    background-color: #ffffff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    border: 1px solid #e0e0e0;
+}
+
+.quadrant h3 {
+    font-size: 1.6em;
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #3498db;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+}
+
+.quadrant-content h4 {
+    font-size: 1.2em;
+    color: #555;
+    margin-top: 20px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 5px;
+    font-weight: bold; /* Make subheadings bold instead of relying on italics */
+}
+.quadrant-content h4:first-child {
+    margin-top: 0;
+}
+
+.q1-sense-block {
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px dashed #e0e0e0;
+}
+.q1-sense-block:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+.q1-sense-block h4 {
+    color: #347ab0;
+}
+.q1-sense-block p { /* For core feeling */
+    font-style: normal; /* Ensure no italics */
+}
+
+.context-example-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px; /* Added a bit more space */
+}
+
+.sentence-text {
+    flex-grow: 1;
+}
+.bilingual-text {
+    font-size: 0.95em;
+}
+.bilingual-text .en-text {
+    /* styles for English part if needed */
+}
+.bilingual-text .zh-text {
+    color: #555; /* Slightly different color for Chinese if desired */
+    margin-left: 5px;
+}
+
+
+.speaker-icon {
+    font-size: 1.2em;
+    color: #3498db;
+    text-decoration: none;
+    cursor: pointer;
+    flex-shrink: 0; /* Prevent speaker icon from shrinking */
+}
+.speaker-icon:hover {
+    color: #2980b9;
+}
+
+
+.quadrant-content p, .quadrant-content ul, .quadrant-content div:not(.q1-sense-block):not(.etymology-item):not(.derivative-item):not(.confusing-word-item):not(.context-example-item) {
+    margin-bottom: 10px;
+    font-style: normal; /* Ensure no italics */
+}
+
+
+.quadrant-content ul {
+    list-style-type: disc;
+    padding-left: 20px;
+}
+.quadrant-content ul ul {
+    list-style-type: circle;
+}
+
+.quadrant-content li {
+    margin-bottom: 5px;
+}
+
+.quadrant-content strong {
+    color: #2c3e50;
+    font-weight: bold;
+}
+
+/* Ensure examples within etymology, derivatives, confusing words are not italic */
+.quadrant-content .etymology-item p em,
+.quadrant-content .derivative-item p em,
+.quadrant-content .confusing-word-item p em {
+    font-style: normal;
+}
+.etymology-example-intro { /* Class for "例如:" text if needed */
+    font-weight: bold;
+}
+
+
+.quadrant-content .etymology-item, .quadrant-content .derivative-item, .quadrant-content .confusing-word-item {
+    margin-bottom: 15px;
+    padding-left: 10px;
+    border-left: 3px solid #7f8c8d;
+}
+
+.quadrant-content .etymology-item p, .quadrant-content .derivative-item p, .quadrant-content .confusing-word-item p {
+     margin-bottom: 5px;
+}
+
+
+#loading-spinner {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 40px;
+}
+
+.spinner {
+    border: 6px solid #f3f3f3;
+    border-top: 6px solid #3498db;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+#error-message {
+    background-color: #e74c3c;
+    color: white;
+    padding: 15px;
+    border-radius: 6px;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+#initial-message {
+    text-align: center;
+    font-size: 1.2em;
+    color: #7f8c8d;
+    padding: 40px 20px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+
+.hidden {
+    display: none !important;
+}
+
+footer {
+    text-align: center;
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid #e0e0e0;
+    color: #7f8c8d;
+    font-size: 0.9em;
+}
+
+/* User Collections Grid */
+#user-collections-grid {
+    display: grid;
+    grid-template-columns: 1fr; /* Default to single column */
+    gap: 25px; /* Consistent gap */
+    margin-top: 40px;
+}
+
+@media (min-width: 768px) { /* Medium screens - 2 columns */
+    #user-collections-grid {
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    }
+}
+
+
+@media (min-width: 1200px) { /* Larger screens - 3 columns */
+    #user-collections-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+
+.collection-container {
+    padding: 20px;
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    border: 1px solid #e0e0e0;
+    display: flex;
+    flex-direction: column; /* Ensure title is above list */
+}
+
+.collection-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.collection-container h2 {
+    font-size: 1.8em;
+    color: #3498db;
+    margin-top: 0;
+    margin-bottom: 0; /* Adjusted due to flex layout in header */
+    text-align: left;
+}
+
+.toggle-filter-button {
+    padding: 6px 12px;
+    font-size: 0.9em;
+    background-color: #ecf0f1;
+    color: #2c3e50;
+    border: 1px solid #bdc3c7;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.toggle-filter-button:hover {
+    background-color: #dde1e2;
+}
+.toggle-filter-button[aria-pressed="true"] {
+    background-color: #95a5a6;
+    color: white;
+    border-color: #7f8c8d;
+}
+
+
+/* Vocabulary Book & Root/Affix Book Lists */
+#vocabulary-list, #root-list, #affix-list {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+    flex-grow: 1; /* Allow lists to take available space */
+    overflow-y: auto; /* Add scroll if content overflows */
+    max-height: 400px; /* Example max-height */
+}
+
+.list-item { /* Shared class for vocab, root, affix items */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    border-bottom: 1px solid #eee;
+    transition: background-color 0.2s ease;
+}
+
+.list-item:last-child {
+    border-bottom: none;
+}
+
+.list-item:hover {
+    background-color: #f9f9f9;
+}
+
+.list-item .item-text-content { /* Wrapper for text and type label */
+    flex-grow: 1;
+    cursor: pointer;
+    display: flex; /* For aligning text and type label if needed */
+    align-items: baseline;
+}
+
+
+.list-item .item-text { /* Shared class for word-text, affix-text, root-text */
+    font-size: 1.1em;
+    color: #2c3e50;
+}
+.list-item .item-type-label { /* For (词根), (前缀), (后缀) */
+    font-size: 0.9em;
+    color: #7f8c8d;
+    margin-left: 8px;
+    white-space: nowrap;
+}
+
+
+.list-item.marked .item-text {
+    font-weight: bold;
+    color: #e67e22; /* Orange color for marked items */
+}
+
+.list-item .item-actions {
+    display: flex;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.list-item button.action-button { /* Common style for mark/delete in all lists */
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.2em;
+    padding: 5px;
+    transition: color 0.2s ease;
+}
+
+.list-item .mark-button {
+    color: #bdc3c7;
+}
+
+.list-item.marked .mark-button {
+    color: #f39c12; /* Gold for marked */
+}
+
+.list-item .delete-button {
+    color: #c0392b; /* Red for delete */
+}
+
+.list-item .mark-button:hover,
+.list-item .delete-button:hover {
+    opacity: 0.7;
+}
+
+#empty-vocabulary-message, #empty-root-book-message, #empty-affix-book-message {
+    text-align: center;
+    font-size: 1.1em;
+    color: #95a5a6;
+    padding: 20px;
+}
+
+/* Item Detail View Styles (was Affix Detail View) */
+#item-detail-view {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+#item-detail-content {
+    background-color: #fff;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    width: 90%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+#item-detail-title {
+    font-size: 2em;
+    color: #3498db;
+    margin-top: 0;
+    margin-bottom: 20px;
+}
+
+#item-detail-definition p {
+    margin-bottom: 10px;
+}
+#item-detail-definition strong {
+    color: #2c3e50;
+}
+
+
+#item-detail-content h3 {
+    font-size: 1.3em;
+    color: #555;
+    margin-top: 25px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 5px;
+}
+
+#item-detail-related-words-list {
+    list-style-type: none;
+    padding: 0;
+}
+
+#item-detail-related-words-list li {
+    padding: 8px 0;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+    color: #2980b9;
+    transition: color 0.2s ease;
+}
+#item-detail-related-words-list li:hover {
+    color: #1c5a84;
+}
+
+#item-detail-related-words-list li:last-child {
+    border-bottom: none;
+}
+
+#back-to-main-view-button {
+    display: block;
+    width: auto;
+    margin: 30px auto 0;
+    padding: 10px 20px;
+    font-size: 1em;
+    background-color: #7f8c8d;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+#back-to-main-view-button:hover {
+    background-color: #6c7a7b;
+}
+
+
+/* Responsive adjustments */
+@media (max-width: 1199px) and (min-width: 768px) { /* Ensure 2 columns for medium screens */
+    #user-collections-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 767px) {
+    #app {
+        max-width: 100%;
+    }
+    header h1 {
+        font-size: 2em;
+    }
+    #input-container {
+        flex-direction: column;
+    }
+    #word-input {
+        max-width: 100%;
+        margin-bottom: 10px;
+    }
+    #central-word {
+        font-size: 2.2em;
+    }
+    .quadrant h3 {
+        font-size: 1.4em;
+    }
+    #quadrants-grid {
+        grid-template-columns: 1fr; /* Stack quadrants on smaller screens */
+    }
+
+    #user-collections-grid {
+        grid-template-columns: 1fr; /* Stack collection books too */
+    }
+     .collection-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    .collection-container h2 {
+        font-size: 1.5em;
+    }
+    .list-item .item-text {
+        font-size: 1em;
+    }
+    .list-item button.action-button {
+        font-size: 1.1em;
+    }
+
+    #item-detail-content {
+        padding: 20px;
+    }
+    #item-detail-title {
+        font-size: 1.6em;
+    }
+}
